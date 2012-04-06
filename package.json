@@ -1,0 +1,16 @@
+{
+	"name": "sqlbt",
+	"version": "0.0.1",
+	"description": "Key-value on top of SQL",
+	"author": "Koen Bok",
+	"dependencies": {
+		"coffee-script": ">=1.0.1",
+		"nodeunit": ">=0.5.0",
+		"sqlite3": ">=2.0.16",
+		"async": ">=0.1.10",
+		"underscore": ">=1.1.7",
+		"winston": ">=0.5.11",
+		"mocha": ">=1.0.1",
+		"should": ">=@0.6.0"
+	}
+}
