@@ -1,5 +1,5 @@
 REPORTER = list
-TIMEOUT = 2000
+TIMEOUT = 10000
 
 
 all: build
@@ -29,6 +29,7 @@ testw:
 	@./node_modules/mocha/bin/mocha \
 		--watch \
 		--growl \
+		--bail \
 		--compilers coffee:coffee-script \
 		--reporter $(REPORTER) \
 		--timeout $(TIMEOUT) \

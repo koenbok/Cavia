@@ -24,9 +24,15 @@ class Store
 					index = item.indexes[indexName]
 					@createIndex item.kind, index.type, indexName, cb
 				, cb
-
+		
+		# INVESTIGATE
 		async.series steps, ->
 			callback()
+	
+	destroy: (callback) ->
+		async.map @definition, (item, cb) =>
+			@backend.dropTable item.kind, cb
+		, callback
 
 
 	createKind: (name, callback) ->
@@ -69,7 +75,7 @@ class Store
 		
 		steps = []
 		
-		if name != "key"
+		if name != "keycol"
 			steps.push (cb) => @backend.createColumn kind, indexName, type, cb
 		
 		steps.push (cb) => @backend.createIndex kind, indexName, [indexName], cb
@@ -103,9 +109,9 @@ class Store
 	
 	get: (kind, key, callback) ->
 		if _.isArray(key)
-			@query kind, {"key": ["IN (#{utils.oinks(key)})", key]}, callback
+			@query kind, {"keycol": ["IN (#{utils.oinks(key)})", key]}, callback
 		else
-			@query kind, {"key": ["= ?", key]}, (err, result) ->
+			@query kind, {"keycol": ["= ?", key]}, (err, result) ->
 				if result.length == 1
 					callback err, result[0]
 				else
@@ -113,9 +119,9 @@ class Store
 
 	del: (kind, key, callback) ->
 		if _.isArray(key)
-			@backend.delete kind, {"key": ["IN (#{utils.oinks(key)})", key]}, callback
+			@backend.delete kind, {"keycol": ["IN (#{utils.oinks(key)})", key]}, callback
 		else
-			@backend.delete kind, {"key": ["= ?", key]}, callback
+			@backend.delete kind, {"keycol": ["= ?", key]}, callback
 					
 	query: (kind, filters, callback) ->
 		if not callback and _.isFunction(filters)
@@ -140,7 +146,7 @@ class Store
 		delete dataCopy.kind
 		
 		result =
-			key: data.key
+			keycol: data.key
 			value: JSON.stringify(dataCopy)
 		
 		# Add the index data
@@ -153,7 +159,7 @@ class Store
 
 	_fromStore: (kind, row) ->
 		result = JSON.parse(row.value)
-		result.key = row.key
+		result.key = row.keycol
 		result.kind = kind
 		return result
 

@@ -34,7 +34,9 @@ class exports.PostgresBackend extends SQLBackend
 		# log.info "[sql] #{sql} #{inspect(params)}"
 		
 		cb = (err, result) ->
-			throw err if err
+			if err
+				console.log sql, params
+				throw err
 			callback err, result.rows
 			
 		if sql[0..5].toLowerCase() == "select"
@@ -51,12 +53,12 @@ class exports.PostgresBackend extends SQLBackend
 		
 		for k, v of columns
 			vals.push "#{k} = ?"
-
+		
 		sql = "
 		WITH upsert AS
 		(
-			UPDATE #{table} m SET #{vals.join(', ')} WHERE m.key=?
-			RETURNING m.key
+			UPDATE #{table} m SET #{vals.join(', ')} WHERE m.keycol=?
+			RETURNING m.keycol
 		)
 		INSERT INTO #{table} (#{keys.join ', '}) 
 			SELECT #{utils.oinks(values)}
@@ -64,7 +66,7 @@ class exports.PostgresBackend extends SQLBackend
 		
 		params = []
 		params.push.apply params, values
-		params.push.apply params, [columns.key]
+		params.push.apply params, [columns.keycol]
 		params.push.apply keys, values
 		params.push.apply params, values
 		

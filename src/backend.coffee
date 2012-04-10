@@ -10,7 +10,10 @@ class Backend
 class exports.SQLBackend extends Backend
 			
 	createTable: (name, callback) ->
-		@execute "CREATE TABLE #{name} (key CHAR(32) NOT NULL, PRIMARY KEY (key))", callback
+		@execute "CREATE TABLE #{name} (keycol CHAR(32) NOT NULL, PRIMARY KEY (keycol))", callback
+
+	dropTable: (name, callback) ->
+		@execute "DROP TABLE IF EXISTS #{name}", callback
 
 	createColumn: (table, name, type, callback) ->
 		@execute "ALTER TABLE #{table} ADD COLUMN #{name} #{@typeMap[type]}", callback

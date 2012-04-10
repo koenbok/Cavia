@@ -1,6 +1,7 @@
 async = require "async"
 _ = require "underscore"
 log = require "winston"
+{inspect} = require "util"
 
 {SQLBackend} = require "./backend"
 utils = require "./utils"
@@ -25,8 +26,9 @@ class exports.MySQLBackend extends SQLBackend
 		
 		# Check if we already selected the database for use
 		if not @_usedb
-			if sql[0..5].toLowerCase() != "create"
+			if sql[0..5].toLowerCase() not in ["create"]
 				@client.query "USE #{@dsl.database}", =>
+					@_usedb = true
 					@execute sql, params, callback
 					return
 		
@@ -41,9 +43,36 @@ class exports.MySQLBackend extends SQLBackend
 		
 		cb = (err, result) ->
 			throw err if err
-			callback err, result.rows
+			callback err, result
 			
 		if sql[0..5].toLowerCase() == "select"
 			@client.query sql, params, cb
 		else
 			@client.query sql, params, cb
+
+	createOrUpdateRow: (table, columns, callback) ->
+		
+		keys = _.keys columns
+		values = _.values columns
+		
+		# http://stackoverflow.com/questions/1218905/how-do-i-update-if-exists-insert-if-not-aka-upsert-or-merge-in-mysql
+		# INSERT INTO `usage`
+		# 	(`thing_id`, `times_used`, `first_time_used`)
+		# 	VALUES
+		# 	(4815162342, 1, NOW())
+		# 	ON DUPLICATE KEY UPDATE
+		# 	`times_used` = `times_used` + 1
+		
+		vals = []
+		
+		for k, v of columns
+			vals.push "#{k} = ?"
+		
+		sql = "INSERT INTO #{table} (#{keys.join ', '}) VALUES (#{utils.oinks(values)}) 
+			ON DUPLICATE KEY UPDATE #{vals.join(', ')}"
+		
+		params = []
+		params.push.apply params, values
+		params.push.apply params, values
+		
+		@execute sql, params, callback
