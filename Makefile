@@ -1,4 +1,6 @@
 REPORTER = list
+TIMEOUT = 2000
+
 
 all: build
 
@@ -20,6 +22,7 @@ test:
 	@./node_modules/mocha/bin/mocha \
 		--compilers coffee:coffee-script \
 		--reporter $(REPORTER) \
+		--timeout $(TIMEOUT) \
 		test/*.coffee
 
 testw:
@@ -28,6 +31,7 @@ testw:
 		--growl \
 		--compilers coffee:coffee-script \
 		--reporter $(REPORTER) \
+		--timeout $(TIMEOUT) \
 		test/*.coffee
 
 .PHONY: build clean watch test

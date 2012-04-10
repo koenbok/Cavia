@@ -4,7 +4,7 @@ exports.uuid = ->
 	output = new Array(36)
 	random = 0
 
-	for digit in [0..32]
+	for digit in [1..32]
 		random = 0x2000000 + (Math.random() * 0x1000000) | 0 if (random <= 0x02)
 		r = random & 0xf
 		random = random >> 4

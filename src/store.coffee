@@ -1,105 +1,11 @@
 require "coffee-script"
 {inspect} = require "util"
 
-sqlite3 = require "sqlite3"
-sqlite3 = sqlite3.verbose() # Optional
-
 async = require "async"
 _ = require "underscore"
 log = require "winston"
 
 utils = require "./utils"
-
-
-class Backend
-
-
-class SQLiteBackend extends Backend
-	
-	constructor: (dsl) ->
-		@typeMap =
-			string: 'VARCHAR(255)'
-			text: 'TEXT'
-			int: 'INT'
-			float: 'FLOAT'
-
-		@db = new sqlite3.Database dsl
-	
-	execute: (sql, params, callback) ->
-			
-		if _.isFunction params
-			callback = params
-			params = {}
-		
-		# log.info "[sql] #{sql} #{inspect(params)}"
-		
-		cb = (err, result) ->
-			throw err if err
-			callback(err, result)
-			
-		if sql[0..5].toLowerCase() == "select"
-			@db.all sql, params, cb
-		else
-			@db.run sql, params, cb
-			
-	createTable: (name, callback) ->
-		@execute "CREATE TABLE #{name} (key CHAR(32) NOT NULL, PRIMARY KEY (key))", callback
-
-	createColumn: (table, name, type, callback) ->
-		@execute "ALTER TABLE #{table} ADD COLUMN #{name} #{@typeMap[type]}", callback
-
-	createIndex: (table, name, columns, callback) ->
-		@execute "CREATE INDEX #{name} ON #{table} (#{columns.join ','})", callback
-	
-	createOrUpdateRow: (table, columns, callback) ->
-		
-		keys = _.keys columns
-		values = _.values columns
-		
-		@execute "INSERT OR REPLACE INTO #{table} (#{keys.join ', '}) VALUES (#{utils.oinks(values)})", 
-			values, callback
-	
-	fetch: (table, filters, callback) ->
-		
-		values = []
-		sql = "SELECT * FROM #{table}"
-		
-		if filters is not {}
-
-			sql += " WHERE"
-
-			for column, filter of filters
-				
-				if values.length > 0
-					sql += " AND"
-				
-				operator = filter[0]
-				
-				sql += " #{column} #{operator}"
-				values.push filter[1]
-				
-				
-				# operator = filter[0]
-				# vals = filter[1]
-				# 
-				# if not _.isArray(vals)
-				# 	vals = [vals]
-				# 
-				# values.push.apply values, vals
-				# 	
-				# placeholders = ["?" for i in [1..vals.length]][0]
-				# 
-				# 
-				# sql += " #{column} #{operator} #{placeholders.join ', '}"
-				
-				
-				# if operator == "IN"
-				# 	placeholders = ["?" for i in [1..filter[1].length]][0]
-				# 	sql += " #{column} #{operator} (#{placeholders.join ', '})"
-				# else
-				# 	sql += " #{column} #{operator} ?"
-		
-		@execute sql, values, callback
 
 class Store
 
@@ -129,7 +35,9 @@ class Store
 			# key: "string"
 			value: "text"
 		
-		indexes = [["key"]]
+		# indexes = [["key"]]
+		# custom index is not needed: http://stackoverflow.com/questions/3379292/is-an-index-needed-for-a-primary-key-in-sqlite
+		indexes = []
 
 		steps = [
 			(cb) => @backend.createTable name, cb,
@@ -173,9 +81,24 @@ class Store
 		if not _.isArray(data)
 			data = [data]
 		
-		async.map data, (item, cb) =>
-			@backend.createOrUpdateRow item.kind, @_toStore(item.kind, item), cb
-		, callback
+		# async.map data, (item, cb) =>
+		# 	@backend.createOrUpdateRow item.kind, @_toStore(item.kind, item), cb
+		# , callback
+		
+		kind = null
+		putd = []
+		
+		for item in data
+			
+			if not kind
+				kind = item.kind
+			else
+				if not kind == item.kind
+					throw "Put should all be same kind"
+			
+			putd.push @_toStore kind, item
+		
+		@backend.createOrUpdateRows kind, putd, callback
 		
 	
 	get: (kind, key, callback) ->
@@ -187,8 +110,17 @@ class Store
 					callback err, result[0]
 				else
 					callback err, null
+
+	del: (kind, key, callback) ->
+		if _.isArray(key)
+			@backend.delete kind, {"key": ["IN (#{utils.oinks(key)})", key]}, callback
+		else
+			@backend.delete kind, {"key": ["= ?", key]}, callback
 					
 	query: (kind, filters, callback) ->
+		if not callback and _.isFunction(filters)
+			callback = filters
+			filters = {}
 		@backend.fetch kind, filters, (err, rows) =>
 			callback err, rows.map (row) =>
 				@_fromStore kind, row
@@ -226,4 +158,3 @@ class Store
 		return result
 
 exports.Store = Store
-exports.SQLiteBackend = SQLiteBackend
