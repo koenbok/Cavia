@@ -1,5 +1,5 @@
 REPORTER = list
-TIMEOUT = 10000
+TIMEOUT = 1000
 
 
 all: build
@@ -8,6 +8,8 @@ build:
 	@./node_modules/coffee-script/bin/coffee \
 		-c \
 		-o lib src
+	@cat lib/backend.js >> lib/browser.js
+	@cat lib/store.js >> lib/browser.js
 
 clean:
 	rm -rf lib
@@ -23,6 +25,7 @@ test:
 		--compilers coffee:coffee-script \
 		--reporter $(REPORTER) \
 		--timeout $(TIMEOUT) \
+		--bail \
 		test/*.coffee
 
 testw:

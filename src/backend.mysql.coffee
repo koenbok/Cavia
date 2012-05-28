@@ -19,7 +19,6 @@ class exports.MySQLBackend extends SQLBackend
 			float: 'FLOAT'
 		
 		@_usedb = false
-		
 		@client = mysql.createClient dsl
 	
 	execute: (sql, params, callback) ->

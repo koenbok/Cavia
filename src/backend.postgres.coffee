@@ -4,6 +4,7 @@ log = require "winston"
 
 {SQLBackend} = require "./backend"
 utils = require "./utils"
+util = require "util"
 
 pg = require "pg"
 
@@ -31,7 +32,7 @@ class exports.PostgresBackend extends SQLBackend
 		for n in [0..params.length]
 			sql = sql.replace "?", "$#{n+1}"
 
-		# log.info "[sql] #{sql} #{inspect(params)}"
+		log.info "[sql] #{sql} #{util.inspect(params)}"
 		
 		cb = (err, result) ->
 			if err

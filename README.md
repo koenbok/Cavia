@@ -1,6 +1,6 @@
 [VERY MUCH A WORK IN PROGRESS]
 
-Key value implementation on top of sql.
+Simple key value implementation on top of old fashioned sql.
 
 ## Philosophy
 
@@ -10,7 +10,7 @@ Some stuff I like for storing my data
 - Old fashion storage engines that you can hire as a service and install locally
 - options (sqlite, mysql, postgresql)
 - Data model flexibility, no schemas
-- Enforcing queries on indexes, so they are always fast
+- Enforce querying on indexes, so they are always fast
 - Separating indexes from the actual data, and dynamically generating them on put
 - The ability to cheat on all of the above if you need it
 - Transactions and aggregates
@@ -76,3 +76,7 @@ make test
 - Make it work in the browser with websql database (mostly a packaging problem, same interface as sqlite)
 - Add middleware system and implementations (caching, serializing, performance, logging, structured data validation, authentication)
 - Add events (<action>.<pre|post>)
+	
+## Other Ideas Like This
+
+http://backchannel.org/blog/friendfeed-schemaless-mysql

@@ -3,6 +3,7 @@ _ = require "underscore"
 log = require "winston"
 
 {SQLBackend} = require "./backend"
+{inspect} = require "util"
 utils = require "./utils"
 
 sqlite3 = require "sqlite3"
@@ -19,19 +20,9 @@ class exports.SQLiteBackend extends SQLBackend
 
 		@db = new sqlite3.Database dsl
 	
-	execute: (sql, params, callback) ->
-			
-		if _.isFunction params
-			callback = params
-			params = []
-		
-		# log.info "[sql] #{sql} #{inspect(params)}"
-		
-		cb = (err, result) ->
-			throw err if err
-			callback(err, result)
+	_execute: (sql, params, callback) ->
 			
 		if sql[0..5].toLowerCase() == "select"
-			@db.all sql, params, cb
+			@db.all sql, params, callback
 		else
-			@db.run sql, params, cb
+			@db.run sql, params, callback

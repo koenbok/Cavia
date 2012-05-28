@@ -1,3 +1,5 @@
+_ = require "underscore"
+
 exports.uuid = ->
 
 	chars = '0123456789abcdefghijklmnopqrstuvwxyz'.split('')
@@ -15,6 +17,8 @@ exports.uuid = ->
 exports.logError = (err) ->
 	console.log(err) if err
 
+exports.placeholders = (values, placeholder) ->
+	placeholder ?= "?"
+	([placeholder for i in [1..values.length]][0]).join ", "
 
-exports.oinks = (values) ->
-	(["?" for i in [1..values.length]][0]).join ", "
+exports.oinks = exports.placeholders
