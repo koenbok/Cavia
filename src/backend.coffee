@@ -1,6 +1,7 @@
 _ = require "underscore"
 log = require "winston"
 
+async = require "async"
 utils = require "./utils"
 {inspect} = require "util"
 
@@ -12,11 +13,18 @@ class Backend
 
 class exports.SQLBackend extends Backend
 	
+	# This is defined here because some backends need to override
+	# this because they are reserved, and we need them for initial
+	# table creation.
 	config:
 		keycol: "key"
+		valcol: "value"
 	
-	execute: (sql, params, callback) ->
+	connect: ->
+	disconnect: ->
 
+	execute: (sql, params, callback) ->
+		
 		if _.isFunction params
 			callback = params
 			params = []
@@ -60,7 +68,30 @@ class exports.SQLBackend extends Backend
 	delete: (table, input, callback) ->
 		query = new DeleteQuery table, input, {}
 		@query query, callback
-
+	
+	transaction: (callback, work) ->
+		
+		# All transactions get put in a single queue to execute serially,
+		# while async is allowed within the transaction block. While a
+		# transaction is being executed, all non transactional queries
+		# are still executed.
+		
+		# todo: set up one transaction queue per connection?
+		
+		worker = (task, cb) ->
+			task cb
+		
+		@transactionQueue ?= async.queue worker, 1
+		
+		steps = []
+		
+		steps.push (cb) => @beginTransaction cb
+		steps.push work
+		steps.push (cb) => @commitTransaction cb
+		
+		@transactionQueue.push (cb) ->
+			async.series steps, cb
+		
 	beginTransaction: (callback) ->
 		@execute "BEGIN", callback
 

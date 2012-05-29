@@ -67,7 +67,8 @@ class exports.MySQLBackend extends SQLBackend
 		for k, v of columns
 			vals.push "#{k} = ?"
 		
-		sql = "INSERT INTO #{table} (#{keys.join ', '}) VALUES (#{utils.oinks(values)}) 
+		sql = "INSERT INTO #{table} (#{keys.join ', '}) 
+			VALUES (#{utils.oinks(values)}) 
 			ON DUPLICATE KEY UPDATE #{vals.join(', ')}"
 		
 		params = []

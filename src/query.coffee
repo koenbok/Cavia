@@ -30,9 +30,14 @@ class Query
 		for key, value of @input
 		
 			key = key.split " "
-		
+			
 			column   = key[0]
-			operator = key[1].toUpperCase()
+			operator = key[1]
+			
+			if !column or !operator
+				throw new Error "Invalid query key: #{key}"
+			
+			operator = operator.toUpperCase()
 					
 			if result.length is 1
 				result.push " WHERE "
@@ -55,11 +60,10 @@ class Query
 					values.push v for v in value.val
 					
 				else
-					console.log value, typeof value
-					console.log "IN operator requires list of values or subquery"
-					throw "IN operator requires list of values or subquery"
+					throw new Error "IN operator requires list of values or subquery"
 					
-			else throw "Invalid operator: #{operator}"
+			else
+				throw new Error "Invalid operator: #{operator}"
 
 
 		@sql = result.join ""

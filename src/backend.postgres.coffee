@@ -9,43 +9,56 @@ util = require "util"
 pg = require "pg"
 
 class exports.PostgresBackend extends SQLBackend
-
-	constructor: (dsl) ->
+	
+	config:
+		keycol: "key"
+		valcol: "val"
+		placeholder: ""
+	
+	constructor: (dsl, @options) ->
 		@typeMap =
 			string: 'VARCHAR(255)'
 			text: 'TEXT'
 			int: 'INT'
 			float: 'FLOAT'
-
-		@client = new pg.Client dsl
-		@client.connect()
-	
-	execute: (sql, params, callback) ->
-			
-		if _.isFunction params
-			callback = params
-			params = []
 		
-		if params != null and not _.isArray params
-			params = [params]
+		@client = new pg.Client dsl
+		
+		@_connected = false
+		@_disconnectTimeout = @options?.timeout or 1000
+		@_disconnectTimer = null
+	
+	connect: ->
+		@client.connect()
+		@_connected = true
+	
+	disconnect: ->
+		@client.end()
+		@_connected = false
+
+	_execute: (sql, params, callback) ->
+		
+		if not @_connected
+			@connect()
 		
 		for n in [0..params.length]
 			sql = sql.replace "?", "$#{n+1}"
-
-		log.info "[sql] #{sql} #{util.inspect(params)}"
 		
 		cb = (err, result) ->
-			if err
-				console.log sql, params
-				throw err
 			callback err, result.rows
-			
+		
 		if sql[0..5].toLowerCase() == "select"
 			@client.query sql, params, cb
 		else
 			@client.query sql, params, cb
+		
+		clearTimeout @_disconnectTimer
+		
+		@_disconnectTimer = setTimeout =>
+			@disconnect() if @_connected
+		, @_disconnectTimeout
 
-	createOrUpdateRow: (table, columns, callback) ->
+	upsert: (table, columns, callback) ->
 		
 		keys = _.keys columns
 		values = _.values columns
@@ -58,17 +71,19 @@ class exports.PostgresBackend extends SQLBackend
 		sql = "
 		WITH upsert AS
 		(
-			UPDATE #{table} m SET #{vals.join(', ')} WHERE m.keycol=?
-			RETURNING m.keycol
+			UPDATE #{table} m SET #{vals.join(', ')} WHERE m.#{@config.keycol}=?
+			RETURNING m.#{@config.keycol}
 		)
 		INSERT INTO #{table} (#{keys.join ', '}) 
-			SELECT #{utils.oinks(values)}
+			SELECT #{utils.placeholders(values)}
 			WHERE NOT EXISTS (SELECT 1 FROM upsert)"
 		
+		key = columns[@config.keycol]
 		params = []
+		
 		params.push.apply params, values
-		params.push.apply params, [columns.keycol]
+		params.push.apply params, [key]
 		params.push.apply keys, values
 		params.push.apply params, values
-		
+
 		@execute sql, params, callback

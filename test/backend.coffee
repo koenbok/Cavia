@@ -4,29 +4,20 @@ assert = require "assert"
 async = require "async"
 should = require "should"
 
-{Store} = require "../src/store"
-{SQLiteBackend} = require "../src/backend.sqlite"
-{PostgresBackend} = require "../src/backend.postgres"
-{MySQLBackend} = require "../src/backend.mysql"
+
 
 utils = require "../src/utils"
 _ = require "underscore"
 
-backends = 
-	sqlite: new SQLiteBackend ":memory:"
-	# postgres: new PostgresBackend "postgres://localhost/test"
-	# mysql: new MySQLBackend {user:"root", password:"test", database:"test2"}
+config = require "./config"
 
-
-			string: 'VARCHAR(255)'
-			text: 'TEXT'
-			int: 'INT'
-			float: 'FLOAT'
-
-for backendName, backend of backends
+for backendName, backend of config.backends
 	
 	describe "Backend.#{backendName}", ->
 		describe "#simple", ->
+			
+			it "should drop a table", (done) ->
+				backend.dropTable "persons", done
 
 			it "should create a table", (done) ->
 				backend.createTable "persons", done
@@ -78,5 +69,9 @@ for backendName, backend of backends
 				data1.col1 = "Koentje"
 				backend.upsert "persons", data1, done
 			
-			it "should fetch the data", (done) ->
+			it "should fetch the updated data", (done) ->
 				backend.select "persons", {"key =": data1.key}, done
+			
+			# it "should disconnect", (done) ->
+			# 	backend.disconnect()
+			# 	done()

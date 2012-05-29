@@ -18,34 +18,29 @@ class Store
 		
 		steps = []
 		
-		for kindName, kind of @definition
+		_.map _.keys(@definition), (kindName) =>
+			kind = @definition[kindName]
+			steps.push (cb) => @createKind kindName, cb
 			
-			steps.push (cb) =>
-				@createKind kindName, cb
-			
-			steps.push (cb) =>
-				async.map _.keys(kind.indexes), (indexName, icb) =>
-					index = kind.indexes[indexName]
-					@createIndex kindName, index[0], indexName, icb
-				, cb
-		
-		async.series steps, callback
+			_.map _.keys(kind.indexes), (indexName) =>
+				index = kind.indexes[indexName]
+				steps.push (cb) => @createIndex kindName, index[0], indexName, cb
+
+		async.parallel steps, callback
 	
 	destroy: (callback) ->
 		
 		steps = []
 		
-		for kindName, kind of @definition
+		_.map _.keys(@definition), (kindName) =>
+			kind = @definition[kindName]
+			steps.push (cb) => @destroyKind kindName, cb
 			
-			steps.push (cb) =>
-				@destroyKind kindName, cb
-			
-			steps.push (cb) =>
-				async.map _.keys(kind.indexes), (indexName, cb) =>
-					@destroyIndex kindName, indexName, cb
-				, cb
+			_.map _.keys(kind.indexes), (indexName) =>
+				index = kind.indexes[indexName]
+				steps.push (cb) => @destroyIndex kindName, indexName, cb
 		
-		async.series steps, callback
+		async.parallel steps, callback
 	
 	destroyKind: (name, callback) ->
 		@backend.dropTable name, callback
@@ -59,10 +54,11 @@ class Store
 		
 		steps.push (cb) => 
 			@backend.createTable name, cb
-		steps.push (cb) => 
-			async.map _.keys(columns), (column, cb) =>
-				@backend.createColumn name, column, columns[column], cb
-			, cb
+		
+		_.map _.keys(columns), (columnName, cb) =>
+			steps.push (cb) => 
+				column = columns[columnName]
+				@backend.createColumn name, columnName, column, cb
 		
 		async.series steps, callback
 	
@@ -82,89 +78,119 @@ class Store
 		
 		steps.push (cb) => @backend.createTable indexTableName, cb
 		steps.push (cb) => @backend.createColumn indexTableName, "value", type, cb
-				
+		steps.push (cb) => @backend.createIndex indexTableName, indexName, "value", cb
+		
 		async.series steps, callback
 	
+	
 	put: (data, callback) ->
-		
+
 		if not _.isArray data
 			data = [data]
-
-		transactionSteps = []
 		
-		transactionSteps.push (cb) =>
-			@backend.beginTransaction cb
-
-		transactionSteps.push (cb) => 
-			async.map data, (item, cb) =>
-				
-				steps = []
-				
-				# Update the values in the kind table
-				steps.push (cb) =>
-					@backend.upsert item.kind, @_toStore(item.kind, item), cb
-				
-				# Update all index tables with fresh data
-				indexes = @definition[item.kind].indexes
-				
-				_.keys(indexes).map (indexName) =>
-					
-					index = indexes[indexName]
-					indexTableName = "#{item.kind}_index_#{indexName}_table"
-					
-					steps.push (cb) =>
-						
-						indexData = {}
-						indexData[@backend.config.keycol] = item.key
-						indexData["value"] = index[1](item)
-						
-						@backend.upsert indexTableName, indexData, cb
-				
-				# Insert all the data in parallel
-				async.parallel steps, cb
-				
-			, cb
+		steps = []
+		
+		_.map data, (item) =>
 			
-		transactionSteps.push (cb) =>
-			@backend.commitTransaction cb
+			# Update the master table with the new values
+			steps.push (cb) =>
+				@backend.upsert item.kind, @_toStore(item.kind, item), cb
+			
+			# Update all index tables with fresh data
+			indexes = @definition[item.kind].indexes
+			
+			_.keys(indexes).map (indexName) =>
+				
+				index = indexes[indexName]
+				indexTableName = "#{item.kind}_index_#{indexName}_table"
+				
+				steps.push (cb) =>
+					
+					indexData = {}
+					indexData[@backend.config.keycol] = item.key
+					indexData["value"] = index[1](item)
+					
+					@backend.upsert indexTableName, indexData, cb
 		
-		async.series transactionSteps, callback
+		transactionWork = (cb) ->
+			async.parallel steps, cb
+		
+		@backend.transaction transactionWork callback
+		
+		# Without a transaction
+		# transactionWork callback
 
 	get: (kind, keys, callback) ->
 		
-		if not _.isArray(keys)
+		if not _.isArray keys
 			keys = [keys]
+			single = true
 		
-		key = "#{@backend.config.keycol} IN"
-		query = new SelectQuery kind, {key: keys}
+		# Hmmm this is not ideal
+		d = {}
+		d[@backend.config.keycol + " IN"] = keys
 		
-		@backend.query query, callback
-		# 
-		# 	@query kind, {"keycol": ["IN (#{utils.oinks(key)})", key]}, callback
-		# else
-		# 	@query kind, {"keycol": ["= ?", key]}, (err, result) ->
-		# 		if result.length == 1
-		# 			callback err, result[0]
-		# 		else
-		# 			callback err, null
+		query = new SelectQuery kind, d
+		
+		@backend.query query, (err, results) =>
 
-	# del: (kind, key, callback) ->
-	# 	if _.isArray(key)
-	# 		@backend.delete kind, {"keycol": ["IN (#{utils.oinks(key)})", key]}, callback
-	# 	else
-	# 		@backend.delete kind, {"keycol": ["= ?", key]}, callback
-					
-	# query: (kind, filters, callback) ->
-	# 	if not callback and _.isFunction(filters)
-	# 		callback = filters
-	# 		filters = {}
-	# 	
-	# 	@backend.fetch kind, filters, (err, rows) =>
-	# 		
-	# 		rows2 = rows.map (row) =>
-	# 			@_fromStore kind, row
-	# 		
-	# 		callback err, rows2
+			if single
+				if results[0]
+					callback err, @_fromStore(kind, results[0])
+				else
+					callback err, null
+				
+			else
+				# Map the result order to the key order, that is appearently
+				# not how sql queries work, and it actually makes sense.
+				
+				resultMap = {}
+				resultMapped = []
+				
+				for item in results
+					resultData = @_fromStore kind, item
+					resultMap[resultData.key] = resultData
+				
+				for key in keys
+					resultMapped.push resultMap[key]
+			
+				callback err, resultMapped
+
+	query: (kind, filter, options, callback) ->
+		
+		callback ?= options # Allow to skip options
+		callback ?= filter # Allow to skip filter for all
+		
+		# For empty filters we can fetch the results straight from
+		# the main table.
+		if not filter or not _.keys(filter).length
+			@backend.select kind, {}, (err, results) =>
+				callback err, _.map results, (item) =>
+					@_fromStore kind, item
+		
+		for key, value of filter
+		
+			# We only allow querying on existing indexes
+			if not indexName in _.keys @definition[kind].indexes
+				throw new Error "No index named #{indexName}"
+		
+		
+		# BIIIIIG TODO
+		
+		
+		# filter = filter.split " "
+		# 
+		# indexName   = filter[0]
+		# operator = filter[1]
+		# 
+		# indexTableName = "#{kind}_index_#{indexName}_table"
+		# 	
+		# subquery = new SelectQuery indexTableName, 
+		# 	{"value =": "koen"}, 
+		# 	{columns: [@backend.config.keycol]}
+		# 
+		# topquery = new SelectQuery "persons", 
+		# 	{"key IN": subquery}
 		
 		
 	_toStore: (kind, data) ->
@@ -188,7 +214,7 @@ class Store
 
 	_fromStore: (kind, row) ->
 		result = @_deserialize(row.value)
-		result.key = row[backend.config.keycol]
+		result.key = row[@backend.config.keycol]
 		result.kind = kind
 		return result
 	
