@@ -90,7 +90,7 @@ for backendName, backend of config.backends
 					data3.should.eql result[2]
 					done()
 					
-			n = 50
+			n = 10
 					
 			it "should insert #{n}, one at a time", (done) ->
 				async.map [1..n], (c, cb) ->

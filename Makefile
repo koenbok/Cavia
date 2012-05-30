@@ -1,6 +1,5 @@
-REPORTER = list
+REPORTER = min
 TIMEOUT = 1000
-
 
 all: build
 

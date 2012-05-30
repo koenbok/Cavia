@@ -41,9 +41,6 @@ class Store
 				steps.push (cb) => @destroyIndex kindName, indexName, cb
 		
 		async.parallel steps, callback
-	
-	destroyKind: (name, callback) ->
-		@backend.dropTable name, callback
 		
 	createKind: (name, callback) ->
 		
@@ -61,10 +58,9 @@ class Store
 				@backend.createColumn name, columnName, column, cb
 		
 		async.series steps, callback
-	
-	destroyIndex: (kind, name, callback) ->
-		indexTableName = "#{kind}_index_#{name}_table"
-		@backend.dropTable indexTableName, callback
+
+	destroyKind: (name, callback) ->
+		@backend.dropTable name, callback
 		
 	createIndex: (kind, type, name, callback) ->
 
@@ -81,8 +77,47 @@ class Store
 		steps.push (cb) => @backend.createIndex indexTableName, indexName, "value", cb
 		
 		async.series steps, callback
-	
-	
+
+	destroyIndex: (kind, name, callback) ->
+		indexTableName = "#{kind}_index_#{name}_table"
+		@backend.dropTable indexTableName, callback
+
+	get: (kind, keys, callback) ->
+		
+		if not _.isArray keys
+			keys = [keys]
+			single = true
+		
+		# Hmmm this is not ideal
+		d = {}
+		d[@backend.config.keycol + " IN"] = keys
+		
+		query = new SelectQuery kind, d
+		
+		@backend.query query, (err, results) =>
+
+			if single
+				if results[0]
+					callback err, @_fromStore(kind, results[0])
+				else
+					callback err, null
+				
+			else
+				# Map the result order to the key order, that is appearently
+				# not how sql queries work, and it actually makes sense.
+				
+				resultMap = {}
+				resultMapped = []
+				
+				for item in results
+					resultData = @_fromStore kind, item
+					resultMap[resultData.key] = resultData
+				
+				for key in keys
+					resultMapped.push resultMap[key]
+			
+				callback err, resultMapped
+
 	put: (data, callback) ->
 
 		if not _.isArray data
@@ -120,41 +155,6 @@ class Store
 		# Without a transaction
 		# transactionWork callback
 
-	get: (kind, keys, callback) ->
-		
-		if not _.isArray keys
-			keys = [keys]
-			single = true
-		
-		# Hmmm this is not ideal
-		d = {}
-		d[@backend.config.keycol + " IN"] = keys
-		
-		query = new SelectQuery kind, d
-		
-		@backend.query query, (err, results) =>
-
-			if single
-				if results[0]
-					callback err, @_fromStore(kind, results[0])
-				else
-					callback err, null
-				
-			else
-				# Map the result order to the key order, that is appearently
-				# not how sql queries work, and it actually makes sense.
-				
-				resultMap = {}
-				resultMapped = []
-				
-				for item in results
-					resultData = @_fromStore kind, item
-					resultMap[resultData.key] = resultData
-				
-				for key in keys
-					resultMapped.push resultMap[key]
-			
-				callback err, resultMapped
 
 	query: (kind, filter, options, callback) ->
 		
