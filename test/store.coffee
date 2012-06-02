@@ -18,25 +18,28 @@ models =
 		indexes:
 			name: ["string", (data) -> data.name]
 			age: ["int", (data) -> data.age]
-		validator: null
+		# validator: null # For later
 
 data1 =
 	key: utils.uuid()
 	kind: "person"
 	name: "Jorn van Dijk"
 	age: 27
+	length: 184
 
 data2 =
 	key: utils.uuid()
 	kind: "person"
 	name: "Koen Bok"
 	age: 29
+	length: 184
 
 data3 =
 	key: utils.uuid()
 	kind: "person"
 	name: "Dirk Stoop"
 	age: 32
+	length: 179
 
 
 
@@ -89,7 +92,29 @@ for backendName, backend of config.backends
 					data2.should.eql result[1]
 					data3.should.eql result[2]
 					done()
-					
+
+			it "should fetch with a query equal", (done) ->
+				store.query "person", {"age =": 32}, (err, result) ->
+					result.length.should.equal 1
+					data3.should.eql result[0]
+					done()
+
+			it "should fetch with a query less than", (done) ->
+				store.query "person", {"age <": 32}, (err, result) ->
+					result.length.should.equal 2
+					done()
+
+			it "should fetch with a query equal name", (done) ->
+				store.query "person", {"name =": "Koen Bok"}, (err, result) ->
+					result.length.should.equal 1
+					data2.should.eql result[0]
+					done()
+
+			it "should err if querying on a nonexistent index", (done) ->
+				t = -> store.query "person", {"length =": 17}, done
+				t.should.throw "No index for person.length"
+				done()
+				
 			n = 10
 					
 			it "should insert #{n}, one at a time", (done) ->
@@ -111,6 +136,8 @@ for backendName, backend of config.backends
 				store.query "person", (err, result) ->
 					result.length.should.equal 3+(n*2)
 					done()
+
+
 			
 					
 			# it "should delete one", (done) ->

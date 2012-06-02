@@ -169,29 +169,34 @@ class Store
 					@_fromStore kind, item
 		
 		for key, value of filter
-		
+
+			filter = key.split " "
+			
+			column   = filter[0]
+			operator = filter[1]
+			
+			indexTableName = "#{kind}_index_#{column}_table"
+
 			# We only allow querying on existing indexes
-			if not indexName in _.keys @definition[kind].indexes
-				throw new Error "No index named #{indexName}"
-		
-		
-		# BIIIIIG TODO
-		
-		
-		# filter = filter.split " "
-		# 
-		# indexName   = filter[0]
-		# operator = filter[1]
-		# 
-		# indexTableName = "#{kind}_index_#{indexName}_table"
-		# 	
-		# subquery = new SelectQuery indexTableName, 
-		# 	{"value =": "koen"}, 
-		# 	{columns: [@backend.config.keycol]}
-		# 
-		# topquery = new SelectQuery "persons", 
-		# 	{"key IN": subquery}
-		
+			if column not in _.keys @definition[kind].indexes
+				throw new Error "No index for #{kind}.#{column}"
+			
+			d = {}
+			d["value #{operator}"] = value
+			
+			subquery = new SelectQuery indexTableName, 
+				d, 
+				{columns: [@backend.config.keycol]}
+			
+			topquery = new SelectQuery kind, 
+				{"key IN": subquery}
+			
+			@backend.query topquery, (err, results) =>
+				callback err, _.map results, (item) =>
+					@_fromStore kind, item
+			
+			# We only support one index per query for now
+			return	
 		
 	_toStore: (kind, data) ->
 
