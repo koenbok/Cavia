@@ -44,9 +44,8 @@ data3 =
 
 
 
-for backendName, backend of config.backends
-	
-	# backend.log = true
+_.map _.keys(config.backends), (backendName) ->
+	backend = config.backends[backendName]
 	
 	describe "Store.#{backendName}", ->
 		describe "#simple", ->
@@ -58,7 +57,7 @@ for backendName, backend of config.backends
 
 			it "should create the store without error", (done) ->
 				store.create done
-		
+					
 			it "should put the data without error", (done) ->
 				store.put data1, done
 					
@@ -66,7 +65,7 @@ for backendName, backend of config.backends
 				store.get "person", data1.key, (err, result) ->
 					data1.should.eql result
 					done()
-			# 
+			
 			it "should update the data", (done) ->
 				data1.age = 28
 				store.put data1, ->
@@ -92,24 +91,24 @@ for backendName, backend of config.backends
 					data2.should.eql result[1]
 					data3.should.eql result[2]
 					done()
-
+			
 			it "should fetch with a query equal", (done) ->
 				store.query "person", {"age =": 32}, (err, result) ->
 					result.length.should.equal 1
 					data3.should.eql result[0]
 					done()
-
+			
 			it "should fetch with a query less than", (done) ->
 				store.query "person", {"age <": 32}, (err, result) ->
 					result.length.should.equal 2
 					done()
-
+			
 			it "should fetch with a query equal name", (done) ->
 				store.query "person", {"name =": "Koen Bok"}, (err, result) ->
 					result.length.should.equal 1
 					data2.should.eql result[0]
 					done()
-
+			
 			it "should err if querying on a nonexistent index", (done) ->
 				t = -> store.query "person", {"length =": 17}, done
 				t.should.throw "No index for person.length"
@@ -136,7 +135,6 @@ for backendName, backend of config.backends
 				store.query "person", (err, result) ->
 					result.length.should.equal 3+(n*2)
 					done()
-
 
 			
 					
