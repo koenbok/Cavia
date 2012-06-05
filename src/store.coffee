@@ -26,7 +26,7 @@ class Store
 				index = kind.indexes[indexName]
 				steps.push (cb) => @createIndex kindName, index[0], indexName, cb
 
-		async.parallel steps, callback
+		async.series steps, callback
 	
 	destroy: (callback) ->
 		
@@ -40,7 +40,7 @@ class Store
 				index = kind.indexes[indexName]
 				steps.push (cb) => @destroyIndex kindName, indexName, cb
 		
-		async.parallel steps, callback
+		async.series steps, callback
 		
 	createKind: (name, callback) ->
 		
@@ -150,7 +150,7 @@ class Store
 		transactionWork = (cb) ->
 			async.parallel steps, cb
 		
-		@backend.transaction transactionWork callback
+		@backend.transaction transactionWork, callback
 		
 		# Without a transaction
 		# transactionWork callback
@@ -162,7 +162,7 @@ class Store
 		callback ?= filter # Allow to skip filter for all
 		
 		# For empty filters we can fetch the results straight from
-		# the main table.
+		# the main table without using any indexes.
 		if not filter or not _.keys(filter).length
 			@backend.select kind, {}, (err, results) =>
 				callback err, _.map results, (item) =>
@@ -188,8 +188,10 @@ class Store
 				d, 
 				{columns: [@backend.config.keycol]}
 			
-			topquery = new SelectQuery kind, 
-				{"key IN": subquery}
+			d = {}
+			d["#{@backend.config.keycol} IN"] = subquery
+			
+			topquery = new SelectQuery kind, d
 			
 			@backend.query topquery, (err, results) =>
 				callback err, _.map results, (item) =>

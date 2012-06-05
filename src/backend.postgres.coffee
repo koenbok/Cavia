@@ -9,13 +9,14 @@ util = require "util"
 pg = require "pg"
 
 class exports.PostgresBackend extends SQLBackend
-	
+
 	config:
 		keycol: "key"
 		valcol: "val"
-		placeholder: ""
-	
+		timeout: 1000
+
 	constructor: (dsl, @options) ->
+
 		@typeMap =
 			string: 'VARCHAR(255)'
 			text: 'TEXT'
@@ -23,23 +24,14 @@ class exports.PostgresBackend extends SQLBackend
 			float: 'FLOAT'
 		
 		@client = new pg.Client dsl
-		
-		@_connected = false
-		@_disconnectTimeout = @options?.timeout or 1000
-		@_disconnectTimer = null
 	
-	connect: ->
+	_connect: ->
 		@client.connect()
-		@_connected = true
 	
-	disconnect: ->
+	_disconnect: ->
 		@client.end()
-		@_connected = false
 
 	_execute: (sql, params, callback) ->
-		
-		if not @_connected
-			@connect()
 		
 		for n in [0..params.length]
 			sql = sql.replace "?", "$#{n+1}"
@@ -51,12 +43,6 @@ class exports.PostgresBackend extends SQLBackend
 			@client.query sql, params, cb
 		else
 			@client.query sql, params, cb
-		
-		clearTimeout @_disconnectTimer
-		
-		@_disconnectTimer = setTimeout =>
-			@disconnect() if @_connected
-		, @_disconnectTimeout
 
 	upsert: (table, columns, callback) ->
 		

@@ -13,26 +13,41 @@ class Backend
 
 class exports.SQLBackend extends Backend
 	
-	# This is defined here because some backends need to override
-	# this because they are reserved, and we need them for initial
-	# table creation.
-	config:
-		keycol: "key"
-		valcol: "value"
+	connect: =>
+		@_connected = true
+		@_connect()
 	
-	connect: ->
-	disconnect: ->
+	disconnect: =>
+		return if not @_connected
+			
+		@_connected = false
+		@_disconnect()
+
+	_connect: -> # Implement in subclass
+	_disconnect: -> # Implement in subclass
 
 	execute: (sql, params, callback) ->
-		
+
+		if not @_connected
+			@connect()
+
 		if _.isFunction params
 			callback = params
 			params = []
 		
 		if @log
-			log.info "[sql] #{sql} #{inspect(params)}"
+			log.debug "[sql] #{sql} #{inspect(params)}"
 		
-		cb = (err, result) ->
+		cb = (err, result) =>
+			
+			# Clear the old disconnection timer and set a new one
+			clearTimeout @_disconnectTimer
+			@_disconnectTimer = setTimeout =>
+				@disconnect()
+			, 1000
+			
+			# Throw an sql error if we got one back from the underlying
+			# client framework, and run the callback function.
 			throw err if err
 			callback(err, result)
 		
@@ -57,10 +72,10 @@ class exports.SQLBackend extends Backend
 	dropIndex: (table, name, callback) ->
 		# TODO
 		throw "Not implemented"
-
+		
 	query: (query, callback) ->
 		@execute query.sql, query.val, callback
-
+	
 	select: (table, input, callback) ->
 		query = new SelectQuery table, input, {}
 		@query query, callback
@@ -69,7 +84,7 @@ class exports.SQLBackend extends Backend
 		query = new DeleteQuery table, input, {}
 		@query query, callback
 	
-	transaction: (callback, work) ->
+	transaction: (work, callback) ->
 		
 		# All transactions get put in a single queue to execute serially,
 		# while async is allowed within the transaction block. While a
@@ -90,7 +105,11 @@ class exports.SQLBackend extends Backend
 		steps.push (cb) => @commitTransaction cb
 		
 		@transactionQueue.push (cb) ->
-			async.series steps, cb
+			async.series steps, (result) ->
+				cb() # Start the next transaction
+				callback(result) # Let the callee know we're done
+		
+		# async.series steps, callback
 		
 	beginTransaction: (callback) ->
 		@execute "BEGIN", callback

@@ -11,45 +11,33 @@ mysql = require "mysql"
 
 class exports.MySQLBackend extends SQLBackend
 
+	config:
+		keycol: "keycol"
+		valcol: "valcol"
+		timeout: 1000
+
 	constructor: (@dsl) ->
+
 		@typeMap =
 			string: 'VARCHAR(255)'
 			text: 'TEXT'
 			int: 'INT'
 			float: 'FLOAT'
-		
-		@_usedb = false
+
 		@client = mysql.createClient dsl
 	
-	execute: (sql, params, callback) ->
+	_execute: (sql, params, callback) ->
 		
-		# Check if we already selected the database for use
-		if not @_usedb
-			if sql[0..5].toLowerCase() not in ["create"]
-				@client.query "USE #{@dsl.database}", =>
-					@_usedb = true
-					@execute sql, params, callback
-					return
-		
-		if _.isFunction params
-			callback = params
-			params = []
-		
-		if params != null and not _.isArray params
-			params = [params]
-
-		# log.info "[sql] #{sql} #{inspect(params)}"
-		
-		cb = (err, result) ->
-			throw err if err
-			callback err, result
-			
 		if sql[0..5].toLowerCase() == "select"
-			@client.query sql, params, cb
+			@client.query sql, params, callback
 		else
-			@client.query sql, params, cb
+			@client.query sql, params, callback
 
-	createOrUpdateRow: (table, columns, callback) ->
+	createTable: (name, callback) ->
+		@execute "CREATE TABLE #{name} (#{@config.keycol} CHAR(32) NOT NULL, PRIMARY KEY (#{@config.keycol})) ENGINE = MYISAM", callback
+
+
+	upsert: (table, columns, callback) ->
 		
 		keys = _.keys columns
 		values = _.values columns
@@ -68,7 +56,7 @@ class exports.MySQLBackend extends SQLBackend
 			vals.push "#{k} = ?"
 		
 		sql = "INSERT INTO #{table} (#{keys.join ', '}) 
-			VALUES (#{utils.oinks(values)}) 
+			VALUES (#{utils.placeholders(values)}) 
 			ON DUPLICATE KEY UPDATE #{vals.join(', ')}"
 		
 		params = []

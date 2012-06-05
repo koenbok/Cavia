@@ -11,7 +11,13 @@ sqlite3 = sqlite3.verbose() # Optional
 
 class exports.SQLiteBackend extends SQLBackend
 
+	config:
+		keycol: "key"
+		valcol: "val"
+		timeout: 1000
+
 	constructor: (dsl) ->
+
 		@typeMap =
 			string: 'VARCHAR(255)'
 			text: 'TEXT'
