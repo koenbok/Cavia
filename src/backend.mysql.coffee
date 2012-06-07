@@ -14,41 +14,40 @@ class exports.MySQLBackend extends SQLBackend
 	config:
 		keycol: "keycol"
 		valcol: "valcol"
-		timeout: 1000
+		connections: 1
+		timeout: 10
 
 	constructor: (@dsl) ->
-
 		@typeMap =
 			string: 'VARCHAR(255)'
 			text: 'TEXT'
 			int: 'INT'
 			float: 'FLOAT'
 
-		@client = mysql.createClient dsl
-	
+	connect: (callback) =>
+		client = mysql.createClient @dsl
+		callback null, client
+		
+	disconnect: (client) ->
+		client.destroy()
+
 	_execute: (sql, params, callback) ->
 		
-		if sql[0..5].toLowerCase() == "select"
-			@client.query sql, params, callback
-		else
-			@client.query sql, params, callback
+		@pool.acquire (err, client) =>
+			client.query sql, params, (err, result) =>
+				@pool.release client
+				callback err, result
 
 	createTable: (name, callback) ->
 		@execute "CREATE TABLE #{name} (#{@config.keycol} CHAR(32) NOT NULL, PRIMARY KEY (#{@config.keycol})) ENGINE = MYISAM", callback
-
 
 	upsert: (table, columns, callback) ->
 		
 		keys = _.keys columns
 		values = _.values columns
 		
-		# http://stackoverflow.com/questions/1218905/how-do-i-update-if-exists-insert-if-not-aka-upsert-or-merge-in-mysql
-		# INSERT INTO `usage`
-		# 	(`thing_id`, `times_used`, `first_time_used`)
-		# 	VALUES
-		# 	(4815162342, 1, NOW())
-		# 	ON DUPLICATE KEY UPDATE
-		# 	`times_used` = `times_used` + 1
+		# http://stackoverflow.com/questions/1218905/how-do-i-update-
+		# if-exists-insert-if-not-aka-upsert-or-merge-in-mysql
 		
 		vals = []
 		

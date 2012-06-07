@@ -41,9 +41,6 @@ data3 =
 	age: 32
 	length: 179
 
-
-
-
 _.map _.keys(config.backends), (backendName) ->
 	backend = config.backends[backendName]
 	
@@ -57,7 +54,11 @@ _.map _.keys(config.backends), (backendName) ->
 
 			it "should create the store without error", (done) ->
 				store.create done
-					
+
+			it "should create the store without error 2", (done) ->
+				store.create (err, result) ->
+					done()
+				
 			it "should put the data without error", (done) ->
 				store.put data1, done
 					
@@ -133,7 +134,7 @@ _.map _.keys(config.backends), (backendName) ->
 			
 			it "should fetch a lot", (done) ->
 				store.query "person", (err, result) ->
-					result.length.should.equal 3+(n*2)
+					result.length.should.equal 3 + (n*2)
 					done()
 
 			

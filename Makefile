@@ -1,4 +1,4 @@
-REPORTER = list
+REPORTER = dot
 TIMEOUT = 1000
 
 all: build

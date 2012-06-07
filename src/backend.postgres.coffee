@@ -13,36 +13,45 @@ class exports.PostgresBackend extends SQLBackend
 	config:
 		keycol: "key"
 		valcol: "val"
-		timeout: 1000
+		connections: 1
+		timeout: 10
 
-	constructor: (dsl, @options) ->
+	constructor: (@dsn, @options) ->
 
 		@typeMap =
 			string: 'VARCHAR(255)'
 			text: 'TEXT'
 			int: 'INT'
 			float: 'FLOAT'
+	
+	connect: (callback) =>
+		client = new pg.Client @dsn
+		client.connect()
 		
-		@client = new pg.Client dsl
-	
-	_connect: ->
-		@client.connect()
-	
-	_disconnect: ->
-		@client.end()
-
+		client.on "connect", ->
+			callback null, client
+		client.on "error", (err) ->
+			callback err
+		
+	disconnect: (client) ->
+		client.end()
+		
 	_execute: (sql, params, callback) ->
 		
 		for n in [0..params.length]
 			sql = sql.replace "?", "$#{n+1}"
 		
 		cb = (err, result) ->
-			callback err, result.rows
+			if result
+				callback err, result.rows
+			else
+				callback err
 		
-		if sql[0..5].toLowerCase() == "select"
-			@client.query sql, params, cb
-		else
-			@client.query sql, params, cb
+		@pool.acquire (err, client) =>
+			client.query sql, params, (err, result) =>
+				@pool.release client
+				cb err, result
+
 
 	upsert: (table, columns, callback) ->
 		

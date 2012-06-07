@@ -10,8 +10,6 @@ utils = require "./utils"
 # {"key IN": [a, b, c]}
 # {"key >": 12, }
 
-
-
 class Query
 	
 	constructor: (@table, @input, @options) ->

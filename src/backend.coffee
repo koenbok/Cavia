@@ -8,47 +8,35 @@ utils = require "./utils"
 {SelectQuery} = require "./query"
 {DeleteQuery} = require "./query"
 
+pooling = require "generic-pool"
 
 class Backend
 
 class exports.SQLBackend extends Backend
-	
-	connect: =>
-		@_connected = true
-		@_connect()
-	
-	disconnect: =>
-		return if not @_connected
-			
-		@_connected = false
-		@_disconnect()
 
-	_connect: -> # Implement in subclass
-	_disconnect: -> # Implement in subclass
-
+	setupPool: ->
+		@pool = pooling.Pool
+			name: "store"
+			create: @connect
+			destroy: @disconnect
+			max: @config.connections # Setting this > 1 breaks transactions
+			idleTimeoutMillis: @config.timeout * 1000
+			log: false
+	
 	execute: (sql, params, callback) ->
-
-		if not @_connected
-			@connect()
-
+		
+		@setupPool() if not @pool
+		
 		if _.isFunction params
 			callback = params
 			params = []
 		
 		if @log
-			log.debug "[sql] #{sql} #{inspect(params)}"
+			clean = sql.replace `/\s+(?= )/g`,''
+			log.debug "sql", "#{clean} #{inspect(params)}"
 		
 		cb = (err, result) =>
-			
-			# Clear the old disconnection timer and set a new one
-			clearTimeout @_disconnectTimer
-			@_disconnectTimer = setTimeout =>
-				@disconnect()
-			, 1000
-			
-			# Throw an sql error if we got one back from the underlying
-			# client framework, and run the callback function.
-			throw err if err
+			log.error err if err
 			callback(err, result)
 		
 		@_execute sql, params, cb
@@ -63,7 +51,7 @@ class exports.SQLBackend extends Backend
 		@execute "ALTER TABLE #{table} ADD COLUMN #{name} #{@typeMap[type]}", callback
 	
 	dropColumn: (table, name, callback) ->
-		throw "Not implemented"
+		throw new Error "Not implemented"
 
 	createIndex: (table, name, columns, callback) ->
 		columns = columns.join ',' if _.isArray columns
@@ -71,7 +59,7 @@ class exports.SQLBackend extends Backend
 
 	dropIndex: (table, name, callback) ->
 		# TODO
-		throw "Not implemented"
+		throw new Error "Not implemented"
 		
 	query: (query, callback) ->
 		@execute query.sql, query.val, callback
@@ -87,9 +75,9 @@ class exports.SQLBackend extends Backend
 	transaction: (work, callback) ->
 		
 		# All transactions get put in a single queue to execute serially,
-		# while async is allowed within the transaction block. While a
+		# async is allowed within the transaction block. While a
 		# transaction is being executed, all non transactional queries
-		# are still executed.
+		# (like selects) are still executed.
 		
 		# todo: set up one transaction queue per connection?
 		
