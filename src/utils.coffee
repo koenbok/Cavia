@@ -22,3 +22,7 @@ exports.placeholders = (values, placeholder) ->
 	([placeholder for i in [1..values.length]][0]).join ", "
 
 exports.oinks = exports.placeholders
+
+exports.ignoreError = (callback) ->
+	f = (err, result) ->
+		callback null, result

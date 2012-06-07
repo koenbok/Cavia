@@ -9,22 +9,24 @@ log = require "winston"
 {DeleteQuery} = require "./query"
 utils = require "./utils"
 
+ignoreError = utils.ignoreError
+
 class Store
 
 	constructor: (@backend, @definition) ->
 		# definition is list of kind, indexes, validator, model
-
+	
 	create: (callback) ->
 		
 		steps = []
 		
 		_.map _.keys(@definition), (kindName) =>
 			kind = @definition[kindName]
-			steps.push (cb) => @createKind kindName, cb
+			steps.push (cb) => @createKind kindName, ignoreError(cb)
 			
 			_.map _.keys(kind.indexes), (indexName) =>
 				index = kind.indexes[indexName]
-				steps.push (cb) => @createIndex kindName, index[0], indexName, cb
+				steps.push (cb) => @createIndex kindName, index[0], indexName, ignoreError(cb)
 
 		async.series steps, callback
 	
