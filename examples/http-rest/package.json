@@ -1,0 +1,13 @@
+{
+	"name": "node-example",
+	"version": "0.0.1",
+	"dependencies": {
+		"coffee-script": "1.3.x",
+		"express": "2.5.9",
+		"express-resource": "0.2.x",
+		"connect-gzip": "0.1.x"
+	},
+	"engines": {
+		"node": "0.6.x"
+	}
+}
