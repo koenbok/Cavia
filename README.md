@@ -79,7 +79,7 @@ REST API example using express. Deployable to Heroku.
 
 - Make it work in the browser with websql database
 - Add middleware system and implementations (caching, serializing, performance, logging, structured data validation, authentication)
-- Add events <action>.<pre|post>
+- Add events action.pre|post
 - Refactor transactions to be objects
 - Refactor query pattern to something nicer (allowing querying on multiple indexes)
 	
