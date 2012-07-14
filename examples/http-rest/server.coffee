@@ -6,7 +6,7 @@ express = 	require "express"
 Resource = 	require "express-resource"
 {gzip} =	require "connect-gzip"
 
-sqlbtjs =	require "../../src"
+cavia =	require "../../src"
 {SQLBTResource} = require "../../src/extras/resource"
 
 
@@ -33,9 +33,9 @@ models =
 
 # Set up the backend and connect the resources
 
-backend = new sqlbtjs.backends.SQLiteBackend "/tmp/test.sqlite3"
-# backend = new sqlbtjs.backends.PostgresBackend config.dsn
-store = new sqlbtjs.Store backend, models
+backend = new cavia.backends.SQLiteBackend "/tmp/test.sqlite3"
+# backend = new cavia.backends.PostgresBackend config.dsn
+store = new cavia.Store backend, models
 
 backend.log = config.backend.log
 backend.config.timeout = config.backend.timeout

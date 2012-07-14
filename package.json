@@ -1,8 +1,9 @@
 {
-	"name": "sqlbt",
+	"name": "cavia",
 	"version": "0.0.1",
 	"description": "Key-value on top of SQL",
 	"author": "Koen Bok",
+	"url" : "http://github.com/koenbok/Cavia",
 	"dependencies": {
 		"coffee-script": ">=1.0.1",
 		"nodeunit": ">=0.5.0",

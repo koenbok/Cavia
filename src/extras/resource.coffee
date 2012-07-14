@@ -9,7 +9,7 @@ log = require "winston"
 # DELETE  /forums/:forum       ->  destroy	v
 
 """
-Very simple helper class to expose sqlbt models through express. Uses express-resource.
+Very simple helper class to expose cavia models through express. Uses express-resource.
 """
 
 class SQLBTResource
