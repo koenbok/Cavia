@@ -29,7 +29,7 @@ models =
 	person: 
 		kind: "person"
 		indexes:
-			age: {type: "int", getter: (o) -> o.age}
+			age: {type: "int", getter: (data) -> data.age}
 
 data =
 	key: utils.uuid()
@@ -50,7 +50,7 @@ store.create (err) ->
 			console.log result
 
 		# Query persons older then 10 years
-		store.query "person", {"name": [">", 10]}, (err, result) ->
+		store.query "person", {"name >": "10"}, (err, result) ->
 			console.log result
 ```
 
@@ -71,12 +71,18 @@ store.query <"kind">, <{filters}>, callback
 
 make test
 
+## Extras
+
+REST API example using express. Deployable to Heroku.
+
 ## Todo
 
-- Make it work in the browser with websql database (mostly a packaging problem, same interface as sqlite)
+- Make it work in the browser with websql database
 - Add middleware system and implementations (caching, serializing, performance, logging, structured data validation, authentication)
-- Add events (<action>.<pre|post>)
+- Add events <action>.<pre|post>
+- Refactor transactions to be objects
+- Refactor query pattern to something nicer (allowing querying on multiple indexes)
 	
-## Other Ideas Like This
+## Inspiration
 
 http://backchannel.org/blog/friendfeed-schemaless-mysql
