@@ -19,11 +19,23 @@ class Query
 		
 		result = []
 		values = []
+
+		if @constructor.name == "SelectQuery"
 		
-		if @options.columns
-			result.push "SELECT #{@options.columns.join ","} FROM #{table}"
-		else
-			result.push "SELECT * FROM #{table}"
+			# See if we have columns specified
+			if @options.columns
+				fields = "#{@options.columns.join ","}"
+			else
+				fields = "*"
+		
+			# See if we want distinct results
+			if @options.distinct
+				fields = "DISTINCT(#{fields})"
+		
+			result.push "SELECT #{fields} FROM #{table}"
+		
+		if @constructor.name == "DeleteQuery"
+			result.push "DELETE FROM #{table}"
 			
 		for key, value of @input
 		
@@ -68,7 +80,5 @@ class Query
 		@val = values
 
 class exports.SelectQuery extends Query
-	type = "select"
 
 class exports.DeleteQuery extends Query
-	type = "delete"

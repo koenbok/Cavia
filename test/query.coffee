@@ -50,12 +50,26 @@ describe "Query", ->
 			
 			subquery = new SelectQuery "persons_name_index_table", 
 				{"value =": "koen"}, 
-				{columns: ["key"]}
+				{columns:["key"], distinct:true}
 			
 			topquery = new SelectQuery "persons", 
 				{"key IN": subquery}
 
-			topquery.sql.should.equal "SELECT * FROM persons WHERE key IN (SELECT key FROM persons_name_index_table WHERE value = ?)"
+			topquery.sql.should.equal "SELECT * FROM persons WHERE key IN (SELECT DISTINCT(key) FROM persons_name_index_table WHERE value = ?)"
 			topquery.val.should.eql ["koen"]
 			
+			done()
+
+		it "should create the right tagged column sql", (done) ->
+
+			subquery = new SelectQuery "persons_tag_index_table", 
+				{"value =": "new"}, 
+				{columns: ["key"], distinct: true}
+			
+			topquery = new SelectQuery "persons", 
+				{"key IN": subquery}
+
+			topquery.sql.should.equal "SELECT * FROM persons WHERE key IN (SELECT DISTINCT(key) FROM persons_tag_index_table WHERE value = ?)"
+			topquery.val.should.eql ["new"]
+
 			done()

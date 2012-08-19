@@ -43,7 +43,17 @@ class Store
 				steps.push (cb) => @destroyIndex kindName, indexName, cb
 		
 		async.series steps, callback
-		
+	
+	_checkForKind: (kind) ->
+		# See if the kind is actually defined
+		if not @definition[kind]
+			throw new Error "No definition for kind: #{kind}"
+	
+	_isListIndex: (type) ->
+		# See if we're dealing with a list index. List
+		# indexes are prefixed with list:<type>. We can just
+		return type[0..4] == "list:"
+	
 	createKind: (name, callback) ->
 		
 		columns = 
@@ -67,16 +77,28 @@ class Store
 	createIndex: (kind, type, name, callback) ->
 
 		indexTableName = "#{kind}_index_#{name}_table"
-		indexName = "#{kind}_index_#{name}"
+		indexKeyName = "#{kind}_index_#{@backend.config.keycol}"
+		indexValName = "#{kind}_index_#{name}"
+		
+		# See if we're creating a list index. List
+		# indexes are prefixed with list:<type>. We can just
+		# use the type here, we only need to know it's a list
+		# when we modify the index.
+		if @_isListIndex type
+			type = type[5..]
 		
 		if type not in _.keys @backend.typeMap
-			throw "Requested index type '#{type}' not supported by backend #{_.keys @backend.typeMap}"
+			throw Error "Index type '#{type}' not supported by backend #{_.keys @backend.typeMap}"
 		
 		steps = []
 		
-		steps.push (cb) => @backend.createTable indexTableName, cb
+		# For indexes we create a table without a primary key. The reason is that lists
+		# need to insert multiple entries for they key. Because we need to look up index
+		# entries by key fast for deletion, we add an index too.
+		steps.push (cb) => @backend.createTable indexTableName, pk:false, cb
 		steps.push (cb) => @backend.createColumn indexTableName, "value", type, cb
-		steps.push (cb) => @backend.createIndex indexTableName, indexName, "value", cb
+		steps.push (cb) => @backend.createIndex indexTableName, indexValName, "value", cb
+		steps.push (cb) => @backend.createIndex indexTableName, indexKeyName, @backend.config.keycol, cb
 		
 		async.series steps, callback
 
@@ -85,6 +107,8 @@ class Store
 		@backend.dropTable indexTableName, callback
 
 	get: (kind, keys, callback) ->
+		
+		@_checkForKind(kind)
 		
 		if not _.isArray keys
 			keys = [keys]
@@ -125,31 +149,64 @@ class Store
 		if not _.isArray data
 			data = [data]
 		
-		steps = []
-		
-		_.map data, (item) =>
+		steps = _.map data, (item) =>
+			
+			@_checkForKind(item.kind)
+			
+			itemSteps = []
 			
 			# Update the master table with the new values
-			steps.push (cb) =>
+			itemSteps.push (cb) =>
 				@backend.upsert item.kind, @_toStore(item.kind, item), cb
 			
 			# Update all index tables with fresh data
+			
 			indexes = @definition[item.kind].indexes
 			
 			_.keys(indexes).map (indexName) =>
 				
 				index = indexes[indexName]
+				indexType = index[0]
+				indexFunction = index[1]
 				indexTableName = "#{item.kind}_index_#{indexName}_table"
 				
-				steps.push (cb) =>
+				# If this is a list index, we have multiple index entries,
+				# so we need to sync these to the new set. The simplest strategy
+				# is to delete and create all entries again.
+				if @_isListIndex indexType
+					
+					indexValues = indexFunction(item)
+					
+					# We should get an array value for a list. Let's be a little strict here.
+					if not _.isArray indexValues
+						throw Error "List index requires array value: #{indexValues}"
+					
+					# Remove all previous index data so we end up with a correct set
+					itemSteps.push (cb) =>
+						
+						d = {}
+						d[@backend.config.keycol + " ="] = item.key
+						
+						@backend.delete indexTableName, d, cb
+				
+				else
+					indexValues = [indexFunction(item)]
+				
+				_(indexValues).map (indexValue) =>
+					
+					keyColumn = @backend.config.keycol
+					valColumn = "value"
 					
 					indexData = {}
-					indexData[@backend.config.keycol] = item.key
-					indexData["value"] = index[1](item)
+					indexData[keyColumn] = item.key
+					indexData[valColumn] = indexValue
 					
-					@backend.upsert indexTableName, indexData, cb
+					itemSteps.push (cb) =>
+						@backend.insert indexTableName, indexData, cb
+				
+			(cb) => async.series itemSteps, cb
 		
-		transactionWork = (cb) ->
+		transactionWork = (cb) =>
 			async.parallel steps, cb
 		
 		@backend.transaction transactionWork, callback
@@ -162,6 +219,8 @@ class Store
 		
 		callback ?= options # Allow to skip options
 		callback ?= filter # Allow to skip filter for all
+		
+		@_checkForKind(kind)
 		
 		# For empty filters we can fetch the results straight from
 		# the main table without using any indexes.
@@ -188,7 +247,7 @@ class Store
 			
 			subquery = new SelectQuery indexTableName, 
 				d, 
-				{columns: [@backend.config.keycol]}
+				{columns:[@backend.config.keycol], distinct:true}
 			
 			d = {}
 			d["#{@backend.config.keycol} IN"] = subquery

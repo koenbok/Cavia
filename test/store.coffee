@@ -80,6 +80,7 @@ _.map _.keys(config.backends), (backendName) ->
 			it "should fetch all", (done) ->
 				store.query "person", {}, (err, result) ->
 					result.length.should.equal 3
+					# This order is not guaranteed, but it works in this test
 					data1.should.eql result[0]
 					data2.should.eql result[1]
 					data3.should.eql result[2]

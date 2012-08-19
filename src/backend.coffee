@@ -32,8 +32,11 @@ class exports.SQLBackend extends Backend
 			params = []
 		
 		if @log
-			clean = sql.replace `/\s+(?= )/g`,''
-			log.debug "sql", "#{clean} #{inspect(params)}"
+			
+			@_logCounter ?= 0
+			@_logCounter += 1
+			
+			log.debug "sql:#{@_logCounter}", "#{sql.replace `/\t/g`,''} #{inspect(params)}"
 		
 		cb = (err, result) =>
 			log.error err if err
@@ -41,8 +44,14 @@ class exports.SQLBackend extends Backend
 		
 		@_execute sql, params, cb
 
-	createTable: (name, callback) ->
-		@execute "CREATE TABLE #{name} (#{@config.keycol} CHAR(32) NOT NULL, PRIMARY KEY (#{@config.keycol}))", callback
+	createTable: (name, options, callback) ->
+		
+		callback ?= options
+		
+		if options.pk is false
+			@execute "CREATE TABLE #{name} (#{@config.keycol} CHAR(32) NOT NULL)", callback
+		else
+			@execute "CREATE TABLE #{name} (#{@config.keycol} CHAR(32) NOT NULL, PRIMARY KEY (#{@config.keycol}))", callback
 
 	dropTable: (name, callback) ->
 		@execute "DROP TABLE IF EXISTS #{name}", callback
@@ -104,6 +113,16 @@ class exports.SQLBackend extends Backend
 
 	commitTransaction: (callback) ->
 		@execute "COMMIT", callback
+	
+	insert: (table, columns, callback) ->
+
+		keys = _.keys columns
+		values = _.values columns
+		
+		@execute "INSERT INTO #{table} 
+			(#{keys.join ', '}) VALUES 
+			(#{utils.placeholders(values)})", 
+			values, callback
 	
 	upsert: (table, columns, callback) ->
 
