@@ -1,3 +1,4 @@
+[![build status](https://secure.travis-ci.org/koenbok/Cavia.png)](http://travis-ci.org/koenbok/Cavia)
 [VERY MUCH A WORK IN PROGRESS]
 
 Simple key value implementation on top of old fashioned sql.
